@@ -34,7 +34,7 @@ impl Sender {
         Sender { n: n, b: b, rng: rng, y: Scalar::one() }
     }
 
-    // output S
+    // output S = y * B
     fn setup(&mut self) -> RistrettoPoint {
         let mut random_value = [0; 32];
         self.rng.fill(&mut random_value).unwrap();
@@ -45,7 +45,7 @@ impl Sender {
 
     fn derive_keys(&mut self, s: RistrettoPoint, r: RistrettoPoint) -> Vec<ring::digest::Digest> {
         // @TODO check if r in field
-        let t = &self.y*s;
+        let t = &self.y * s;
         //let k: [<u8>, n];
         let mut k = Vec::new();
         for idx in 0u32..self.n {
@@ -57,14 +57,28 @@ impl Sender {
         k
     }
 
-    fn encrypt(&self) -> Vec<u8> {
-        let key = LessSafeKey::new(UnboundKey::new(&AES_256_GCM, &[0u8; 32]).unwrap());
-        let mut nonce_bytes = [0; 12]; // todo: generate random
-        let mut nonce = Nonce::assume_unique_for_key(nonce_bytes);
-        let content = b"content to encrypt".to_vec();
-        let mut in_out = content.clone();
-        let len = key.seal_in_place(nonce, Aad::empty(), &mut in_out).unwrap();
-        println!("{:?}", content);
+    fn encrypt(&self, k_s: Vec<ring::digest::Digest>) -> Vec<Vec<u8>> {
+        let mut in_out = Vec::new();
+        print!("encrypt function ");
+        println!("{:?}", k_s.len());
+        for p in 0..k_s.len() { // encrypt each message with different key
+            let k = k_s[p].as_ref();
+            print!("Index: ");
+            println!("{:?}", p);
+            let key = LessSafeKey::new(UnboundKey::new(&AES_256_GCM, &k).unwrap());
+            let nonce_bytes = [0; 12]; // todo: generate random
+            let nonce = Nonce::assume_unique_for_key(nonce_bytes);
+            print!("Nonce is: ");
+            println!("{:?}", nonce_bytes);
+            let content = b"content to encrypt".to_vec();
+            let in_out_t = content.clone();
+            in_out.push(in_out_t);
+            print!("Encrypting: ");
+            println!("{:?}", in_out[p]);
+            let _len = key.seal_in_place(nonce, Aad::empty(), &mut in_out[p]).unwrap();
+            print!("Encrypted: ");
+            println!("{:?}", content);
+        }
         in_out
     }
 }
@@ -81,7 +95,7 @@ impl Receiver {
 
     // returns the encryption key 'k'
     fn choose(&mut self, c: Scalar, s: RistrettoPoint) -> RistrettoPoint {
-        let mut random_value = [0; 32];
+        let random_value = [0; 32];
         let x = Scalar::from_bits(random_value); // sample random value
         let r = c * s + &x * &self.b;
         let args = &x * s;
@@ -90,12 +104,17 @@ impl Receiver {
         r
     }
 
-    fn decrypt(&self, mut in_out: Vec<u8>) {
-        println!("{:?}", in_out);
-        let mut nonce_bytes = [0; 12]; // todo: generate random
-        let mut nonce_r = Nonce::assume_unique_for_key(nonce_bytes);
-        let res = self.key.open_in_place(nonce_r, Aad::empty(), &mut in_out);
-        println!("{:?}", res);
+    fn decrypt(&self, mut in_out: Vec<Vec<u8>>) {
+        println!("Decrypt function");
+        for p in 0..in_out.len() {
+            let mut nonce_bytes = [0; 12]; // todo: generate random
+            let mut nonce_r = Nonce::assume_unique_for_key(nonce_bytes);
+            print!("Decrypting ");
+            println!("{:?}", in_out[p]);
+            let res = self.key.open_in_place(nonce_r, Aad::empty(), &mut in_out[p]).unwrap();
+            print!("Decrypted ");
+            println!("{:?}", res);
+        }
     }
 
 }
@@ -109,17 +128,21 @@ fn main() {
 
     let mut sender = Sender::new(n, RISTRETTO_BASEPOINT_TABLE);
     let s = sender.setup();
-    println!("{:?}", s);
+    // println!("{:?}", s);
 
     // S --- s ---> R
     let c = Scalar::one(); // choose which info to be received ( @TODO: input of the program)
     let mut receiver = Receiver::new(n, RISTRETTO_BASEPOINT_TABLE);
     let r = receiver.choose(c, s);
+    println!("choose");
 
     // R --- r ---> S
     let k_s = sender.derive_keys(s, r);
+    println!("derived keys");
+    // k_s is a vector of keys
 
     // transfer phase
-    let mut encrypted_message = sender.encrypt();
+    let encrypted_message = sender.encrypt(k_s);
+    println!("encrypted");
     receiver.decrypt(encrypted_message);
 }
