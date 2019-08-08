@@ -4,6 +4,8 @@ use curve25519_dalek::scalar::Scalar;
 use ring::aead::*;
 use ring::digest;
 use ring::rand::{SecureRandom, SystemRandom};
+use std::fs::File;
+use std::io::{BufRead, BufReader, Error, ErrorKind, Read};
 
 /**
  * Oblivious Transfer sender and receiver based on Chou-Orlandi OT
@@ -78,6 +80,7 @@ impl Sender {
 
 impl Receiver {
 
+    // construct a receiver
     fn new(n: u32, b: RistrettoBasepointTable) -> Receiver {
         let rng = SystemRandom::new();
         let k = digest::digest(&digest::SHA256, b"");
@@ -111,7 +114,19 @@ impl Receiver {
 
 }
 
-fn main() {
+// read each line of input file and returns a vector of Strings
+fn read_message<R: Read>(io: R) -> Result<Vec<Vec<u8>>, Error> {
+    let br = BufReader::new(io);
+    let lines = br.lines()
+        .map(|line| line.unwrap().as_bytes())
+        .collect();
+    Ok(lines)
+    //br.lines()
+    //    .map(|line| line.and_then(|v| v.parse().map_err(|e| Error::new(ErrorKind::InvalidData, e))))
+    //    .collect()
+}
+
+fn main() -> Result<(), Error> {
 
     println!("Initiating protocol");
 
@@ -120,6 +135,8 @@ fn main() {
 
     let mut sender = Sender::new(N, RISTRETTO_BASEPOINT_TABLE);
     let s = sender.setup();
+
+    let messages = read_message(File::open("../res/example_input.txt")?).unwrap();
 
     // S --- s ---> R
     let c = Scalar::one(); // choose which info to be received ( @TODO: input of the program)
@@ -130,7 +147,8 @@ fn main() {
     let k_s = sender.derive_keys(s, r);
 
     // transfer phase
-    let messages = vec![b"one".to_vec(), b"two".to_vec()];
     let encrypted_messages = sender.encrypt(k_s, messages);
     receiver.decrypt(encrypted_messages);
+
+    Ok(())
 }
