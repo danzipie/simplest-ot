@@ -5,7 +5,8 @@ use ring::aead::*;
 use ring::digest;
 use ring::rand::{SecureRandom, SystemRandom};
 use std::fs::File;
-use std::io::{BufRead, BufReader, Error, ErrorKind, Read};
+use std::io::{BufRead, BufReader, Error, Read};
+use std::convert::TryFrom;
 
 /**
  * Oblivious Transfer sender and receiver based on Chou-Orlandi OT
@@ -107,7 +108,7 @@ impl Receiver {
             let nonce_r = Nonce::assume_unique_for_key(nonce_bytes);
             match self.key.open_in_place(nonce_r, Aad::empty(), &mut in_out[p]) {
                 Ok(v) => println!("{:?}", v),
-                Err(e) => println!("Impossible to decrypt")
+                Err(_e) => println!("Impossible to decrypt")
             }
         }
     }
@@ -118,12 +119,9 @@ impl Receiver {
 fn read_message<R: Read>(io: R) -> Result<Vec<Vec<u8>>, Error> {
     let br = BufReader::new(io);
     let lines = br.lines()
-        .map(|line| line.unwrap().as_bytes())
-        .collect();
+        .map(|line| Vec::from(line.unwrap()))
+        .collect::<Vec<_>>();
     Ok(lines)
-    //br.lines()
-    //    .map(|line| line.and_then(|v| v.parse().map_err(|e| Error::new(ErrorKind::InvalidData, e))))
-    //    .collect()
 }
 
 fn main() -> Result<(), Error> {
@@ -136,7 +134,9 @@ fn main() -> Result<(), Error> {
     let mut sender = Sender::new(N, RISTRETTO_BASEPOINT_TABLE);
     let s = sender.setup();
 
-    let messages = read_message(File::open("../res/example_input.txt")?).unwrap();
+    let messages = read_message(File::open("./res/example_input.txt")?).unwrap();
+    // panic if length of messages is not N
+    assert_eq!(messages.len(), usize::try_from(N).unwrap());
 
     // S --- s ---> R
     let c = Scalar::one(); // choose which info to be received ( @TODO: input of the program)
