@@ -3,8 +3,8 @@ Implementation of Chou-Orlandi Oblivious Transfer (OT) protocol
 
 ## Work in progress
 
-A n-to-1 OT protocol practical implementation in Rust, as thin as possible.
-The purpose is to learn how to use Rust crypto libraries, not to produce a tool.
+A n-out-of-1 OT protocol practical implementation in Rust, as thin as possible.
+The purpose is to learn how to use Rust crypto libraries.
 
 ## Quickstart
 

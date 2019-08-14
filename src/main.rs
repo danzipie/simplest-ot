@@ -6,7 +6,7 @@ use ring::digest;
 use ring::rand::{SecureRandom, SystemRandom};
 use std::fs::File;
 use std::io::{BufRead, BufReader, Error, Read};
-use std::convert::TryFrom;
+use std::convert::TryInto;
 
 /**
  * Oblivious Transfer sender and receiver based on Chou-Orlandi OT
@@ -77,6 +77,16 @@ impl Sender {
         }
         in_out
     }
+
+    // read each line of input file and returns a vector of Strings
+    fn read_message<R: Read>(io: R) -> Result<Vec<Vec<u8>>, Error> {
+        let br = BufReader::new(io);
+        let lines = br.lines()
+            .map(|line| Vec::from(line.unwrap()))
+            .collect::<Vec<_>>();
+        Ok(lines)
+    }
+
 }
 
 impl Receiver {
@@ -115,32 +125,20 @@ impl Receiver {
 
 }
 
-// read each line of input file and returns a vector of Strings
-fn read_message<R: Read>(io: R) -> Result<Vec<Vec<u8>>, Error> {
-    let br = BufReader::new(io);
-    let lines = br.lines()
-        .map(|line| Vec::from(line.unwrap()))
-        .collect::<Vec<_>>();
-    Ok(lines)
-}
-
 fn main() -> Result<(), Error> {
 
     println!("Initiating protocol");
 
-    const N: u32 = 2; // number of alternative messages
-    const L: u32 = 128;
+    let messages = Sender::read_message(File::open("./res/example_input.txt")?).unwrap();
+    let n: u32 = messages.len().try_into().unwrap();
 
-    let mut sender = Sender::new(N, RISTRETTO_BASEPOINT_TABLE);
-    let s = sender.setup();
-
-    let messages = read_message(File::open("./res/example_input.txt")?).unwrap();
-    // panic if length of messages is not N
-    assert_eq!(messages.len(), usize::try_from(N).unwrap());
+    // construct sender and receiver
+    let mut sender = Sender::new(n, RISTRETTO_BASEPOINT_TABLE);
+    let mut receiver = Receiver::new(n, RISTRETTO_BASEPOINT_TABLE);
 
     // S --- s ---> R
+    let s = sender.setup();
     let c = Scalar::one(); // choose which info to be received ( @TODO: input of the program)
-    let mut receiver = Receiver::new(N, RISTRETTO_BASEPOINT_TABLE);
     let r = receiver.choose(c, s);
 
     // R --- r ---> S
