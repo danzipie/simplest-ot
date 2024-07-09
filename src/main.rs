@@ -32,14 +32,14 @@ impl Sender {
     // construct a Sender
     fn new(n: u32, b: RistrettoBasepointTable) -> Sender {
         let rng = SystemRandom::new();
-        Sender { n: n, b: b, rng: rng, y: Scalar::one() }
+        Sender { n: n, b: b, rng: rng, y: Scalar::ONE }
     }
 
     // select private parameter y and return S = y * B
     fn setup(&mut self) -> RistrettoPoint {
         let mut random_value = [0; 32];
         self.rng.fill(&mut random_value).unwrap();
-        let y = Scalar::from_bits(random_value); // sample random value
+        let y = Scalar::from_bytes_mod_order(random_value); // sample random value
         self.y = y;
         &y * &self.b
     }
@@ -102,7 +102,7 @@ impl Receiver {
     // returns the encryption key 'k' based on secret parameter x and external param S
     fn choose(&mut self, c: Scalar, s: RistrettoPoint) -> RistrettoPoint {
         let random_value = [0; 32];
-        let x = Scalar::from_bits(random_value); // sample random value
+        let x = Scalar::from_bytes_mod_order(random_value); // sample random value
         let r = c * s + &x * &self.b;
         let args = &x * s;
         let args = args.compress();
@@ -133,12 +133,12 @@ fn main() -> Result<(), Error> {
     let n: u32 = messages.len().try_into().unwrap();
 
     // construct sender and receiver
-    let mut sender = Sender::new(n, RISTRETTO_BASEPOINT_TABLE);
-    let mut receiver = Receiver::new(n, RISTRETTO_BASEPOINT_TABLE);
+    let mut sender = Sender::new(n, RISTRETTO_BASEPOINT_TABLE.clone());
+    let mut receiver = Receiver::new(n, RISTRETTO_BASEPOINT_TABLE.clone());
 
     // S --- s ---> R
     let s = sender.setup();
-    let c = Scalar::one(); // choose which info to be received ( @TODO: input of the program)
+    let c = Scalar::ONE; // choose which info to be received ( @TODO: input of the program)
     let r = receiver.choose(c, s);
 
     // R --- r ---> S
