@@ -4,18 +4,15 @@ Implementation of Chou-Orlandi Oblivious Transfer (OT) protocol
 ## Work in progress
 
 A n-out-of-1 OT protocol practical implementation in Rust, as thin as possible.
-The purpose is to learn how to use Rust crypto libraries.
+The implementation is a work in progress and incomplete, not to be used in production environments. The sole purpose is to learn how to use Rust crypto libraries.
 
 ## Quickstart
 
-```
-cargo build
-./target/debug/simplest-ot
-```
+This command will run an example:
 
-## Design
-
-It uses Chou-Orlandi "Simplest OT" protocol to establish key exchange, and AES encryption for the actual information.
+```
+cargo run
+```
 
 ## References
 
