@@ -14,6 +14,18 @@ This command will run an example:
 cargo run
 ```
 
+The example reads `example_input.txt` and creates a sender and receiver.
+Receiver is expected to only succeed in decrypting one message, while the rest are "Impossible to decrypt".
+
+```
+Initiating protocol
+n: 2
+Receiver choosing a random index
+Receiver decypting
+Success [111, 110, 101]
+Impossible to decrypt
+```
+
 ## References
 
 OT protocol article:

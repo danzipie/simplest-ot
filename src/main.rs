@@ -32,12 +32,12 @@ fn main() -> Result<(), Error> {
     let r = receiver.choose(c, s);
 
     // R --- r ---> S
-    let k_s = sender.derive_keys(s, r);
+    let k_s = sender.derive_keys(s, r.unwrap());
 
     // transfer phase
     let encrypted_messages = sender.encrypt(k_s, messages);
     println!("Receiver decypting");
-    receiver.decrypt(encrypted_messages);
+    receiver.decrypt(encrypted_messages.unwrap());
 
     Ok(())
 }

@@ -3,7 +3,23 @@ use curve25519_dalek::scalar::Scalar;
 use ring::aead::*;
 use ring::digest;
 use ring::rand::{SecureRandom, SystemRandom};
+use std::convert::TryInto;
 use std::io::{BufRead, BufReader, Error, Read};
+use ring::error::Unspecified;
+
+struct CounterNonceSequence(u32);
+
+impl NonceSequence for CounterNonceSequence {
+    // called once for each seal operation
+    fn advance(&mut self) -> Result<Nonce, Unspecified> {
+        let mut nonce_bytes = vec![0; NONCE_LEN];
+
+        let bytes = self.0.to_be_bytes();
+        nonce_bytes[8..].copy_from_slice(&bytes);
+        self.0 += 1; // advance the counter
+        Nonce::try_assume_unique_for_key(&nonce_bytes)
+    }
+}
 
 pub struct Sender {
     n: u32,
@@ -42,18 +58,19 @@ impl Sender {
         k
     }
 
-    pub fn encrypt(&self, k_s: Vec<ring::digest::Digest>, messages: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+    pub fn encrypt(&self, k_s: Vec<ring::digest::Digest>, messages: Vec<Vec<u8>>) -> Result<Vec<Vec<u8>>, Unspecified> {
         let mut in_out = Vec::new();
+
         for p in 0..k_s.len() { // encrypt each message with different key
             let k = k_s[p].as_ref();
-            let key = LessSafeKey::new(UnboundKey::new(&AES_256_GCM, &k).unwrap());
-            let nonce_bytes = [0; 12]; // todo: generate random
-            let nonce = Nonce::assume_unique_for_key(nonce_bytes);
+            let unbound_key = UnboundKey::new(&AES_256_GCM, &k)?;
+            let nonce_sequence = CounterNonceSequence(p.try_into().unwrap());
+            let mut key = SealingKey::new(unbound_key, nonce_sequence);
             let in_out_t = messages[p].clone();
             in_out.push(in_out_t);
-            let _len = key.seal_in_place_append_tag(nonce, Aad::empty(), &mut in_out[p]).unwrap();
+            key.seal_in_place_append_tag(Aad::empty(), &mut in_out[p]).unwrap();
         }
-        in_out
+        Ok(in_out)
     }
 
     // read each line of input file and returns a vector of Strings
